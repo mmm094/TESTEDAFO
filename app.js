@@ -50,14 +50,13 @@ function selectQuestions(mode) {
       alert("¡Estás limpio! No tienes preguntas falladas registradas aún. Te iniciaremos un test aleatorio.");
       return selectQuestions('random');
     }
-    // Si tienes falladas, hacemos un test con un máximo de 30 de tus falladas mezcladas
-    return shuffle(poolWrong).slice(0, 30);
+    return shuffle(poolWrong).slice(0, 40); // Te muestra hasta un máximo de 40 fallos acumulados
   }
 
-  // --- MODO 2: PREGUNTAS DE EXÁMENES REALES (Busca marcas de examen en el texto) ---
+  // --- MODO 2: PREGUNTAS DE EXÁMENES REALES (Subido a 40 preguntas fijas) ---
   if (mode === 'exams') {
     let poolExams = QUESTIONS.filter(q => q.text.toLowerCase().includes('examen'));
-    return shuffle(poolExams).slice(0, 30); // Test enfocado de 30 preguntas de examen
+    return shuffle(poolExams).slice(0, 40); 
   }
 
   // --- MODO 3: ALEATORIO INTELIGENTE (Equilibrado 70/30 con control de temas) ---
@@ -90,7 +89,7 @@ function selectQuestions(mode) {
     }
   });
 
-  // Rellenar hasta 40
+  // Rellenar hasta completar las 40
   let remainingPool = QUESTIONS.filter(q => !usedIds.has(q.id));
   let remainingUnseen = shuffle(remainingPool.filter(q => !seenSet.has(q.id)));
   let remainingSeen = shuffle(remainingPool.filter(q => seenSet.has(q.id)));
@@ -113,7 +112,6 @@ function selectQuestions(mode) {
     remainingPool = remainingPool.filter(q => q.id !== chosenQ.id);
   }
 
-  // Guardar historial de vistas
   try {
     localStorage.setItem('edafologia_seen_questions', JSON.stringify(Array.from(seenSet).slice(-80)));
   } catch(e) {}
@@ -136,7 +134,6 @@ function startTest(mode) {
   state.selectedOption = null;
   state.answered = false;
 
-  // Cambiar título superior según el modo activo
   let titleEl = document.getElementById('test-mode-title');
   if(mode === 'random') titleEl.textContent = "EDAFOLOGÍA · ALEATORIO";
   if(mode === 'exams') titleEl.textContent = "EDAFOLOGÍA · EXÁMENES OFICIALES";
@@ -203,7 +200,6 @@ function selectOption(optionIndex) {
   document.getElementById('btn-next').disabled = false;
 }
 
-// Responder con sistema de registro de fallos y guardado en memoria
 function submitAnswer(isBlank) {
   if (state.answered) return;
   state.answered = true;
@@ -211,7 +207,6 @@ function submitAnswer(isBlank) {
   const q = state.selectedQuestions[state.currentIndex];
   let result;
 
-  // Cargar lista de fallos actual
   let wrongIds = [];
   try {
     const storedWrong = localStorage.getItem('edafologia_wrong_questions');
@@ -223,22 +218,18 @@ function submitAnswer(isBlank) {
     result = 'blank';
   } else if (state.selectedOption === q.correct) {
     result = 'correct';
-    // Si aciertas una que tenías en la lista de fallos, la eliminamos para "limpiarla"
     wrongSet.delete(q.id);
   } else {
     result = 'wrong';
-    // Si fallas, guardamos el ID en la lista de errores del navegador
     wrongSet.add(q.id);
   }
 
-  // Guardar lista de errores actualizada
   try {
     localStorage.setItem('edafologia_wrong_questions', JSON.stringify(Array.from(wrongSet)));
   } catch(e) {}
 
   state.answers.push(result);
 
-  // Iluminar botones (Verde para la correcta, Rojo para el fallo)
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (i === q.correct) {
       btn.classList.add('correct-answer');
@@ -255,12 +246,10 @@ function submitAnswer(isBlank) {
   document.getElementById('btn-blank').disabled = true;
   document.getElementById('btn-next').disabled = false;
 
-  // CONTROL DE TIEMPOS CORREGIDO: ¡Ahora "En blanco" también frena 2 segundos!
   if (result === 'correct') {
-    setTimeout(() => { advanceFlow(); }, 500); // 0,5 segundos si aciertas
+    setTimeout(() => { advanceFlow(); }, 500); 
   } else {
-    // Si fallas O dejas en blanco, te deja 2 SEGUNDOS enteros para ver la respuesta correcta
-    setTimeout(() => { advanceFlow(); }, 2000); 
+    setTimeout(() => { advanceFlow(); }, 2000); // 2 segundos de pausa tanto si fallas como si dejas en blanco
   }
 }
 
@@ -384,7 +373,7 @@ function buildThemeAnalysis() {
 }
 
 // ────────────────────────────────────────────────────────────
-//  EVENT LISTENERS (Llamadas a los 3 modos)
+//  EVENT LISTENERS
 // ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-random').addEventListener('click', () => startTest('random'));
