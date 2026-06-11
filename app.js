@@ -29,11 +29,8 @@ function shuffle(arr) {
 
 /**
  * Selecciona 40 preguntas intentando cubrir todos los temas.
- * - Garantiza mínimo 1 pregunta por tema si hay suficientes.
- * - El resto se rellena aleatoriamente del banco.
  */
 function selectQuestions() {
-  // Agrupar por tema
   const byTheme = {};
   QUESTIONS.forEach(q => {
     if (!byTheme[q.tema]) byTheme[q.tema] = [];
@@ -44,7 +41,6 @@ function selectQuestions() {
   const selected = [];
   const usedIds = new Set();
 
-  // 1. Una pregunta aleatoria de cada tema
   themes.forEach(t => {
     const pool = shuffle(byTheme[t]);
     if (pool.length > 0) {
@@ -53,7 +49,6 @@ function selectQuestions() {
     }
   });
 
-  // 2. Rellenar hasta 40 con preguntas no usadas (aleatorio por tema)
   const remaining = shuffle(
     QUESTIONS.filter(q => !usedIds.has(q.id))
   );
@@ -84,7 +79,6 @@ function startTest() {
   state.selectedOption = null;
   state.answered = false;
 
-  // Reset scoreboard
   document.getElementById('live-correct').textContent = '0';
   document.getElementById('live-wrong').textContent = '0';
   document.getElementById('live-blank').textContent = '0';
@@ -132,10 +126,10 @@ function renderQuestion() {
     container.appendChild(btn);
   });
 
-  // Botones de acción
+  // Asegurar que los botones de acción vuelven a su estado inicial para la nueva pregunta
   document.getElementById('btn-next').disabled = true;
-  document.getElementById('btn-next').textContent =
-    idx + 1 < total ? 'Siguiente →' : 'Ver resultado →';
+  document.getElementById('btn-next').textContent = idx + 1 < total ? 'Siguiente →' : 'Ver resultado →';
+  document.getElementById('btn-blank').disabled = false; // ¡ACTIVADO PARA LA NUEVA PREGUNTA!
 
   // Animación entrada
   const card = document.getElementById('question-card');
@@ -151,7 +145,6 @@ function selectOption(optionIndex) {
   if (state.answered) return;
   state.selectedOption = optionIndex;
 
-  // Visual: marcar seleccionada
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     btn.classList.toggle('selected', i === optionIndex);
   });
@@ -198,30 +191,9 @@ function submitAnswer(isBlank) {
   document.getElementById('live-wrong').textContent = wrong;
   document.getElementById('live-blank').textContent = blank;
 
-  // Habilitar siguiente
-  document.getElementById('btn-next').disabled = false;
+  // Bloquear el botón de blanco y asegurar que el siguiente esté activo
   document.getElementById('btn-blank').disabled = true;
-}
-
-// ────────────────────────────────────────────────────────────
-//  AVANZAR A LA SIGUIENTE PREGUNTA
-// ────────────────────────────────────────────────────────────
-function nextQuestion() {
-  // Si no ha respondido aún (solo eligió opción), procesar respuesta
-  if (!state.answered && state.selectedOption !== null) {
-    submitAnswer(false);
-    return; // El setTimeout deja ver el feedback brevemente
-  }
-
-  if (!state.answered) return; // nada elegido, no avanzar
-
-  state.currentIndex++;
-
-  if (state.currentIndex >= state.selectedQuestions.length) {
-    showResults();
-  } else {
-    renderQuestion();
-  }
+  document.getElementById('btn-next').disabled = false;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -232,18 +204,15 @@ function showResults() {
   const wrong   = state.answers.filter(a => a === 'wrong').length;
   const blank   = state.answers.filter(a => a === 'blank').length;
 
-  // Fórmula: (aciertos - errores/2) * 10 / 40
   const rawScore = correct - (wrong / 2);
   const grade    = Math.max(0, (rawScore * 10) / NUM_QUESTIONS);
   const gradeStr = grade.toFixed(2);
 
-  // Rellenar cifras
   document.getElementById('res-correct').textContent = correct;
   document.getElementById('res-wrong').textContent = wrong;
   document.getElementById('res-blank').textContent = blank;
   document.getElementById('grade-value').textContent = gradeStr;
 
-  // Veredicto
   let verdict, verdictClass;
   if (grade >= 9)      { verdict = '🎉 Sobresaliente'; verdictClass = 'outstanding'; }
   else if (grade >= 7) { verdict = '✅ Notable';        verdictClass = 'good'; }
@@ -255,12 +224,8 @@ function showResults() {
   verdictEl.textContent = verdict;
   verdictEl.className = 'result-verdict ' + verdictClass;
 
-  // Anillo SVG
   animateRing(grade);
-
-  // Análisis por temas
   buildThemeAnalysis();
-
   showScreen('screen-result');
 }
 
@@ -276,13 +241,11 @@ function animateRing(grade) {
   arc.style.strokeDasharray = `${circum}`;
   arc.style.strokeDashoffset = `${circum}`;
 
-  // Color según nota
   let color = '#e74c3c';
   if (grade >= 7) color = '#27ae60';
   else if (grade >= 5) color = '#f39c12';
   arc.style.stroke = color;
 
-  // Animar
   setTimeout(() => {
     arc.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)';
     arc.style.strokeDashoffset = `${circum * (1 - pct)}`;
@@ -293,8 +256,7 @@ function animateRing(grade) {
 //  ANÁLISIS POR TEMAS
 // ────────────────────────────────────────────────────────────
 function buildThemeAnalysis() {
-  // Mapear respuestas a sus preguntas y temas
-  const themeData = {}; // { temaNum: { correct, total } }
+  const themeData = {};
 
   state.selectedQuestions.forEach((q, i) => {
     const t = q.tema;
@@ -304,7 +266,6 @@ function buildThemeAnalysis() {
     if (state.answers[i] === 'wrong')   themeData[t].wrong++;
   });
 
-  // Ordenar de peor a mejor (por tasa de error)
   const sorted = Object.entries(themeData)
     .map(([tema, data]) => ({
       tema: Number(tema),
@@ -326,7 +287,6 @@ function buildThemeAnalysis() {
     if (pct >= 70) barClass = 'bar-good';
     else if (pct >= 50) barClass = 'bar-mid';
 
-    // Emoji indicador
     let icon = '🔴';
     if (pct >= 70) icon = '🟢';
     else if (pct >= 50) icon = '🟡';
@@ -344,7 +304,6 @@ function buildThemeAnalysis() {
     container.appendChild(row);
   });
 
-  // Animar barras
   setTimeout(() => {
     document.querySelectorAll('.theme-bar-fill').forEach(bar => {
       bar.style.transition = 'width 0.8s ease';
@@ -358,22 +317,12 @@ function buildThemeAnalysis() {
 // ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Iniciar simulacro
   document.getElementById('btn-start').addEventListener('click', startTest);
 
-  // Botón siguiente / confirmar
+  // Manejo correcto de confirmación y avance
   document.getElementById('btn-next').addEventListener('click', () => {
     if (!state.answered && state.selectedOption !== null) {
-      // Mostrar feedback primero
       submitAnswer(false);
-      setTimeout(() => {
-        state.currentIndex++;
-        if (state.currentIndex >= state.selectedQuestions.length) {
-          showResults();
-        } else {
-          renderQuestion();
-        }
-      }, 800);
     } else if (state.answered) {
       state.currentIndex++;
       if (state.currentIndex >= state.selectedQuestions.length) {
@@ -384,24 +333,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // En blanco
+  // Dejar en blanco corregido sin bloqueos extraños
   document.getElementById('btn-blank').addEventListener('click', () => {
     if (state.answered) return;
     submitAnswer(true);
-    setTimeout(() => {
-      state.currentIndex++;
-      if (state.currentIndex >= state.selectedQuestions.length) {
-        showResults();
-      } else {
-        renderQuestion();
-      }
-    }, 600);
   });
 
-  // Nuevo simulacro
   document.getElementById('btn-retry').addEventListener('click', startTest);
 
-  // Volver al inicio
   document.getElementById('btn-home').addEventListener('click', () => {
     showScreen('screen-home');
   });
