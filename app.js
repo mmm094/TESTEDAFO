@@ -126,10 +126,10 @@ function renderQuestion() {
     container.appendChild(btn);
   });
 
-  // Asegurar que los botones de acción vuelven a su estado inicial para la nueva pregunta
+  // Reset de botones de acción
   document.getElementById('btn-next').disabled = true;
   document.getElementById('btn-next').textContent = idx + 1 < total ? 'Siguiente →' : 'Ver resultado →';
-  document.getElementById('btn-blank').disabled = false; // ¡ACTIVADO PARA LA NUEVA PREGUNTA!
+  document.getElementById('btn-blank').disabled = false; // Siempre disponible al entrar a una pregunta nueva
 
   // Animación entrada
   const card = document.getElementById('question-card');
@@ -172,7 +172,7 @@ function submitAnswer(isBlank) {
 
   state.answers.push(result);
 
-  // Mostrar feedback visual
+  // Mostrar feedback visual en pantalla
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (i === q.correct) {
       btn.classList.add('correct-answer');
@@ -191,9 +191,25 @@ function submitAnswer(isBlank) {
   document.getElementById('live-wrong').textContent = wrong;
   document.getElementById('live-blank').textContent = blank;
 
-  // Bloquear el botón de blanco y asegurar que el siguiente esté activo
   document.getElementById('btn-blank').disabled = true;
   document.getElementById('btn-next').disabled = false;
+
+  // SI SE DEJA EN BLANCO, PASAMOS AUTOMÁTICAMENTE TRAS UN BREVE SEGUNDO
+  if (isBlank) {
+    setTimeout(() => {
+      advanceFlow();
+    }, 400); // 400 milisegundos para que sea fluido
+  }
+}
+
+// Lógica unificada para avanzar de pregunta o ir a resultados
+function advanceFlow() {
+  state.currentIndex++;
+  if (state.currentIndex >= state.selectedQuestions.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -319,21 +335,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-start').addEventListener('click', startTest);
 
-  // Manejo correcto de confirmación y avance
+  // Botón Siguiente (para cuando el usuario Elige una opción)
   document.getElementById('btn-next').addEventListener('click', () => {
     if (!state.answered && state.selectedOption !== null) {
       submitAnswer(false);
     } else if (state.answered) {
-      state.currentIndex++;
-      if (state.currentIndex >= state.selectedQuestions.length) {
-        showResults();
-      } else {
-        renderQuestion();
-      }
+      advanceFlow();
     }
   });
 
-  // Dejar en blanco corregido sin bloqueos extraños
+  // Botón dejar en blanco
   document.getElementById('btn-blank').addEventListener('click', () => {
     if (state.answered) return;
     submitAnswer(true);
