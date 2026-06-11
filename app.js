@@ -2,6 +2,8 @@
 //  app.js – lógica principal multimodolos del simulacro
 // ============================================================
 
+const NUM_QUESTIONS = 40;
+
 let state = {
   selectedQuestions: [],
   currentIndex: 0,
@@ -50,36 +52,33 @@ function selectQuestions(mode) {
       alert("¡Estás limpio! No tienes preguntas falladas registradas aún. Te iniciaremos un test aleatorio.");
       return selectQuestions('random');
     }
-    return shuffle(poolWrong).slice(0, 40);
+    return shuffle(poolWrong).slice(0, NUM_QUESTIONS);
   }
 
-  // --- MODO 2: EXÁMENES REALES (Filtrado inteligente por tu TOP de conceptos más preguntados) ---
+  // --- MODO 2: EXÁMENES REALES (Filtrado por tu TOP de conceptos) ---
   if (mode === 'exams') {
-    // Palabras clave extraídas de tu listado de conceptos más repetidos
     const keywords = [
       'caolinita', 'illita', 'esmectita', 'vermiculita', 'sustitución', 'isomórfica', 
       'hematites', 'limonita', 'mull', 'húmico', 'fúlvico', 'stokes', 'bouyoucos', 
       'robinson', 'textural', 'columnar', 'masiva', 'estabilidad', 'gley', 'higroscópica', 
       'absorbible', 'campo', 'marchitamiento', 'nitrificación', 'desnitrificación', 
-      'reductora', 'óxido', 'cic', 'poro', 'Jenny', 'clímax', 'evolución', 
+      'reductora', 'óxido', 'cic', 'poro', 'jenny', 'clímax', 'evolución', 
       'bt', 'bk', 'cy', 'bw', 'bn', 'bh', 'roca madre'
     ];
 
     let poolExams = QUESTIONS.filter(q => {
       const textLower = q.text.toLowerCase();
       const optionsLower = q.options.join(' ').toLowerCase();
-      
-      // Entra al pool si contiene alguna palabra clave o si explícitamente dice "examen"
       return keywords.some(word => textLower.includes(word) || optionsLower.includes(word)) || textLower.includes('examen');
     });
 
-    // Si por lo que sea el filtro es muy estricto, añadimos un colchón aleatorio para asegurar las 40 fijas
-    if (poolExams.length < 40) {
+    // Colchón de seguridad si el filtro es muy estricto para llegar a 40
+    if (poolExams.length < NUM_QUESTIONS) {
       let backupPool = QUESTIONS.filter(q => !poolExams.some(eq => eq.id === q.id));
       poolExams = [...poolExams, ...shuffle(backupPool)];
     }
 
-    return shuffle(poolExams).slice(0, 40); 
+    return shuffle(poolExams).slice(0, NUM_QUESTIONS); 
   }
 
   // --- MODO 3: ALEATORIO INTELIGENTE (Equilibrado 70/30 con control de temas) ---
@@ -92,7 +91,7 @@ function selectQuestions(mode) {
   const selected = [];
   const usedIds = new Set();
 
-  // Asegurar 1 por tema
+  // Asegurar mínimo 1 por tema para repasar toda la materia
   Object.keys(byTheme).forEach(t => {
     let pool = shuffle(byTheme[t]);
     let unseen = pool.filter(q => !seenSet.has(q.id));
@@ -112,7 +111,7 @@ function selectQuestions(mode) {
     }
   });
 
-  // Rellenar hasta completar las 40
+  // Rellenar hasta completar las 40 exactas
   let remainingPool = QUESTIONS.filter(q => !usedIds.has(q.id));
   let remainingUnseen = shuffle(remainingPool.filter(q => !seenSet.has(q.id)));
   let remainingSeen = shuffle(remainingPool.filter(q => seenSet.has(q.id)));
@@ -272,7 +271,7 @@ function submitAnswer(isBlank) {
   if (result === 'correct') {
     setTimeout(() => { advanceFlow(); }, 500); 
   } else {
-    setTimeout(() => { advanceFlow(); }, 2000); 
+    setTimeout(() => { advanceFlow(); }, 2000); // 2 segundos de pausa para fallos y blancos
   }
 }
 
