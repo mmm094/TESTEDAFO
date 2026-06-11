@@ -50,12 +50,35 @@ function selectQuestions(mode) {
       alert("¡Estás limpio! No tienes preguntas falladas registradas aún. Te iniciaremos un test aleatorio.");
       return selectQuestions('random');
     }
-    return shuffle(poolWrong).slice(0, 40); // Te muestra hasta un máximo de 40 fallos acumulados
+    return shuffle(poolWrong).slice(0, 40);
   }
 
-  // --- MODO 2: PREGUNTAS DE EXÁMENES REALES (Subido a 40 preguntas fijas) ---
+  // --- MODO 2: EXÁMENES REALES (Filtrado inteligente por tu TOP de conceptos más preguntados) ---
   if (mode === 'exams') {
-    let poolExams = QUESTIONS.filter(q => q.text.toLowerCase().includes('examen'));
+    // Palabras clave extraídas de tu listado de conceptos más repetidos
+    const keywords = [
+      'caolinita', 'illita', 'esmectita', 'vermiculita', 'sustitución', 'isomórfica', 
+      'hematites', 'limonita', 'mull', 'húmico', 'fúlvico', 'stokes', 'bouyoucos', 
+      'robinson', 'textural', 'columnar', 'masiva', 'estabilidad', 'gley', 'higroscópica', 
+      'absorbible', 'campo', 'marchitamiento', 'nitrificación', 'desnitrificación', 
+      'reductora', 'óxido', 'cic', 'poro', 'Jenny', 'clímax', 'evolución', 
+      'bt', 'bk', 'cy', 'bw', 'bn', 'bh', 'roca madre'
+    ];
+
+    let poolExams = QUESTIONS.filter(q => {
+      const textLower = q.text.toLowerCase();
+      const optionsLower = q.options.join(' ').toLowerCase();
+      
+      // Entra al pool si contiene alguna palabra clave o si explícitamente dice "examen"
+      return keywords.some(word => textLower.includes(word) || optionsLower.includes(word)) || textLower.includes('examen');
+    });
+
+    // Si por lo que sea el filtro es muy estricto, añadimos un colchón aleatorio para asegurar las 40 fijas
+    if (poolExams.length < 40) {
+      let backupPool = QUESTIONS.filter(q => !poolExams.some(eq => eq.id === q.id));
+      poolExams = [...poolExams, ...shuffle(backupPool)];
+    }
+
     return shuffle(poolExams).slice(0, 40); 
   }
 
@@ -249,7 +272,7 @@ function submitAnswer(isBlank) {
   if (result === 'correct') {
     setTimeout(() => { advanceFlow(); }, 500); 
   } else {
-    setTimeout(() => { advanceFlow(); }, 2000); // 2 segundos de pausa tanto si fallas como si dejas en blanco
+    setTimeout(() => { advanceFlow(); }, 2000); 
   }
 }
 
