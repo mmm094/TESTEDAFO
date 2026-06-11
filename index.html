@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulacro Edafología</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- WATERMARK AUTOR (visible en todas las pantallas) -->
+  <div class="author-tag">Desarrollado por Miguel Martos Muñoz</div>
+
+  <!-- ===================== PANTALLA INICIO ===================== -->
+  <div id="screen-home" class="screen active">
+    <div class="home-layout">
+      <div class="home-left">
+        <div class="soil-layers">
+          <div class="layer layer-o">O</div>
+          <div class="layer layer-a">A</div>
+          <div class="layer layer-b">B</div>
+          <div class="layer layer-c">C</div>
+          <div class="layer layer-r">R</div>
+        </div>
+      </div>
+
+      <div class="home-right">
+        <div class="eyebrow">Grado en Ciencias Ambientales · EDAFOLOGÍA</div>
+        <h1 class="home-title">Simulacro<br/><span class="accent">de examen</span></h1>
+        <p class="home-subtitle">197 preguntas · Exámenes 2017–2025 · Banco completo</p>
+
+        <div class="rules-box">
+          <div class="rules-header">
+            <span class="rules-icon">📋</span>
+            <span>Instrucciones del examen</span>
+          </div>
+          <ul class="rules-list">
+            <li><strong>40 preguntas</strong> seleccionadas aleatoriamente del banco completo</li>
+            <li>Cada pregunta correcta suma <strong>+1 punto</strong></li>
+            <li>Cada pregunta incorrecta resta <strong>−0,5 puntos</strong> (penalización ×2)</li>
+            <li>Las preguntas en blanco <strong>no puntúan</strong> (botón "No sé / En blanco")</li>
+            <li>Nota final sobre <strong>10</strong> = (Aciertos − Errores/2) × 10/40</li>
+            <li>Al finalizar verás un análisis detallado <strong>por temas</strong></li>
+          </ul>
+        </div>
+
+        <button class="btn-primary" id="btn-start">Comenzar simulacro →</button>
+        <p class="home-hint">Las preguntas varían en cada simulacro</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PANTALLA TEST ===================== -->
+  <div id="screen-test" class="screen">
+    <div class="test-header">
+      <div class="test-meta">
+        <span class="test-subject">EDAFOLOGÍA</span>
+        <span class="test-progress-label" id="progress-label">Pregunta 1 / 40</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="test-body">
+      <div class="question-card" id="question-card">
+        <div class="question-theme-tag" id="q-theme-tag">TEMA 1</div>
+        <div class="question-number" id="q-number">01</div>
+        <p class="question-text" id="q-text">Texto de la pregunta...</p>
+
+        <div class="options-grid" id="options-container">
+          <!-- opciones se generan dinámicamente -->
+        </div>
+
+        <div class="action-row">
+          <button class="btn-blank" id="btn-blank">No sé / En blanco</button>
+          <button class="btn-next" id="btn-next" disabled>Siguiente →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-scoreboard">
+      <div class="score-item correct">
+        <span class="score-num" id="live-correct">0</span>
+        <span class="score-lbl">Correctas</span>
+      </div>
+      <div class="score-item wrong">
+        <span class="score-num" id="live-wrong">0</span>
+        <span class="score-lbl">Incorrectas</span>
+      </div>
+      <div class="score-item blank">
+        <span class="score-num" id="live-blank">0</span>
+        <span class="score-lbl">En blanco</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PANTALLA RESULTADO ===================== -->
+  <div id="screen-result" class="screen">
+    <div class="result-layout">
+      <div class="result-top">
+        <div class="result-grade-wrap">
+          <div class="grade-ring">
+            <svg viewBox="0 0 120 120" class="ring-svg">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fill" cx="60" cy="60" r="52" id="ring-arc"/>
+            </svg>
+            <div class="grade-inner">
+              <span class="grade-value" id="grade-value">--</span>
+              <span class="grade-label">sobre 10</span>
+            </div>
+          </div>
+          <div class="result-verdict" id="result-verdict">--</div>
+        </div>
+
+        <div class="result-stats">
+          <div class="stat-card correct">
+            <span class="stat-number" id="res-correct">0</span>
+            <span class="stat-text">Correctas</span>
+          </div>
+          <div class="stat-card wrong">
+            <span class="stat-number" id="res-wrong">0</span>
+            <span class="stat-text">Incorrectas</span>
+          </div>
+          <div class="stat-card blank">
+            <span class="stat-number" id="res-blank">0</span>
+            <span class="stat-text">En blanco</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-analysis">
+        <h2 class="analysis-title">Análisis por temas</h2>
+        <p class="analysis-sub">Temas donde necesitas reforzar más:</p>
+        <div id="theme-analysis" class="theme-bars">
+          <!-- generado dinámicamente -->
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn-primary" id="btn-retry">Nuevo simulacro →</button>
+        <button class="btn-secondary" id="btn-home">Volver al inicio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/questions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
