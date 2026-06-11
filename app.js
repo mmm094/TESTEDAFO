@@ -28,15 +28,85 @@ function shuffle(arr) {
 }
 
 /**
- * Selecciona 40 preguntas del banco de forma 100% aleatoria.
- * Rompe el bucle de repeticiones combinando todo el pool disponible.
+ * Selecciona 40 preguntas garantizando mínimo 1 por tema.
+ * Usa un sistema probabilístico para priorizar preguntas no vistas,
+ * pero permite que algunas ya vistas se repitan de forma natural.
  */
 function selectQuestions() {
-  // 1. Mezclamos TODO el banco de preguntas completo (las 151 que tienes)
-  const allShuffled = shuffle(QUESTIONS);
-  
-  // 2. Cortamos directamente las primeras 40 de esa gran mezcla aleatoria
-  return allShuffled.slice(0, NUM_QUESTIONS);
+  // 1. Cargar el historial de preguntas vistas
+  let seenIds = [];
+  try {
+    const stored = localStorage.getItem('edafologia_seen_questions');
+    if (stored) seenIds = JSON.parse(stored);
+  } catch(e) {
+    seenIds = [];
+  }
+  const seenSet = new Set(seenIds);
+
+  // 2. Agrupar por temas
+  const byTheme = {};
+  QUESTIONS.forEach(q => {
+    if (!byTheme[q.tema]) byTheme[q.tema] = [];
+    byTheme[q.tema].push(q);
+  });
+
+  const themes = Object.keys(byTheme).map(Number);
+  const selected = [];
+  const usedIds = new Set();
+
+  // 3. SELECCIÓN OBLIGATORIA: 1 pregunta por tema con prioridad inteligente
+  themes.forEach(t => {
+    let pool = shuffle(byTheme[t]);
+    let unseen = pool.filter(q => !seenSet.has(q.id));
+    let seen = pool.filter(q => seenSet.has(q.id));
+
+    let chosen;
+    // 70% de probabilidad de elegir una no vista (si existen)
+    if (unseen.length > 0 && (seen.length === 0 || Math.random() < 0.70)) {
+      chosen = unseen[0];
+    } else {
+      chosen = seen.length > 0 ? seen[0] : pool[0];
+    }
+
+    if (chosen) {
+      selected.push(chosen);
+      usedIds.add(chosen.id);
+      seenSet.add(chosen.id);
+    }
+  });
+
+  // 4. RELLENO: Hasta completar las 40 preguntas
+  let remainingPool = QUESTIONS.filter(q => !usedIds.has(q.id));
+  let remainingUnseen = shuffle(remainingPool.filter(q => !seenSet.has(q.id)));
+  let remainingSeen = shuffle(remainingPool.filter(q => seenSet.has(q.id)));
+
+  // Mezclamos el relleno respetando la probabilidad del 70/30 de forma fluida
+  while (selected.length < NUM_QUESTIONS && remainingPool.length > 0) {
+    let chosenQ;
+    if (remainingUnseen.length > 0 && (remainingSeen.length === 0 || Math.random() < 0.70)) {
+      chosenQ = remainingUnseen.shift();
+    } else if (remainingSeen.length > 0) {
+      chosenQ = remainingSeen.shift();
+    } else {
+      break;
+    }
+
+    if (chosenQ && !usedIds.has(chosenQ.id)) {
+      selected.push(chosenQ);
+      usedIds.add(chosenQ.id);
+      seenSet.add(chosenQ.id);
+    }
+    // Actualizar el pool de control general
+    remainingPool = remainingPool.filter(q => q.id !== chosenQ.id);
+  }
+
+  // Guardar historial moderado (máximo 80 para permitir que vuelvan a salir pronto)
+  const updatedSeenIds = Array.from(seenSet).slice(-80);
+  try {
+    localStorage.setItem('edafologia_seen_questions', JSON.stringify(updatedSeenIds));
+  } catch(e) {}
+
+  return shuffle(selected.slice(0, NUM_QUESTIONS));
 }
 
 // ────────────────────────────────────────────────────────────
@@ -75,22 +145,16 @@ function renderQuestion() {
   state.selectedOption = null;
   state.answered = false;
 
-  // Cabecera
   const total = state.selectedQuestions.length;
   document.getElementById('progress-label').textContent = `Pregunta ${idx + 1} / ${total}`;
   document.getElementById('progress-bar').style.width = `${((idx + 1) / total) * 100}%`;
 
-  // Tema
   document.getElementById('q-theme-tag').textContent = `TEMA ${q.tema} · ${THEME_NAMES[q.tema].toUpperCase()}`;
 
-  // Número
   const num = String(idx + 1).padStart(2, '0');
   document.getElementById('q-number').textContent = num;
-
-  // Texto
   document.getElementById('q-text').textContent = q.text;
 
-  // Opciones
   const container = document.getElementById('options-container');
   container.innerHTML = '';
 
@@ -104,15 +168,13 @@ function renderQuestion() {
     container.appendChild(btn);
   });
 
-  // Reset de botones de acción
   document.getElementById('btn-next').disabled = true;
   document.getElementById('btn-next').textContent = idx + 1 < total ? 'Siguiente →' : 'Ver resultado →';
-  document.getElementById('btn-blank').disabled = false; // Siempre disponible al entrar a una pregunta nueva
+  document.getElementById('btn-blank').disabled = false;
 
-  // Animación entrada
   const card = document.getElementById('question-card');
   card.classList.remove('slide-in');
-  void card.offsetWidth; // reflow
+  void card.offsetWidth; 
   card.classList.add('slide-in');
 }
 
@@ -131,7 +193,7 @@ function selectOption(optionIndex) {
 }
 
 // ────────────────────────────────────────────────────────────
-//  RESPONDER (tras pulsar Siguiente o En blanco)
+//  RESPONDER (Con control de tiempos inteligente)
 // ────────────────────────────────────────────────────────────
 function submitAnswer(isBlank) {
   if (state.answered) return;
@@ -150,17 +212,15 @@ function submitAnswer(isBlank) {
 
   state.answers.push(result);
 
-  // Mostrar feedback visual en pantalla (colores)
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (i === q.correct) {
-      btn.classList.add('correct-answer'); // Ilumina la correcta en verde
+      btn.classList.add('correct-answer');
     } else if (!isBlank && i === state.selectedOption && result === 'wrong') {
-      btn.classList.add('wrong-answer');   // Ilumina tu fallo en rojo
+      btn.classList.add('wrong-answer');
     }
-    btn.disabled = true; // Bloquea las opciones para que no se pueda volver a pulsar
+    btn.disabled = true;
   });
 
-  // Actualizar marcador en vivo de la barra inferior
   const correct = state.answers.filter(a => a === 'correct').length;
   const wrong   = state.answers.filter(a => a === 'wrong').length;
   const blank   = state.answers.filter(a => a === 'blank').length;
@@ -172,20 +232,15 @@ function submitAnswer(isBlank) {
   document.getElementById('btn-blank').disabled = true;
   document.getElementById('btn-next').disabled = false;
 
-  // CONTROL DE TIEMPOS INTELIGENTE SEGÚN TU RESPUESTA
   if (isBlank) {
-    // Si la dejas en blanco, pasa rápido (0,4 segundos)
     setTimeout(() => { advanceFlow(); }, 400);
   } else if (result === 'correct') {
-    // Si aciertas, pasa rápido porque ya te la sabes (0,5 segundos)
     setTimeout(() => { advanceFlow(); }, 500);
   } else if (result === 'wrong') {
-    // Si fallas, TE DEJA 2 SEGUNDOS para que veas cuál era la correcta en verde
-    setTimeout(() => { advanceFlow(); }, 2000);
+    setTimeout(() => { advanceFlow(); }, 2000); 
   }
 }
 
-// Lógica unificada para avanzar de pregunta o ir a resultados
 function advanceFlow() {
   state.currentIndex++;
   if (state.currentIndex >= state.selectedQuestions.length) {
@@ -228,9 +283,6 @@ function showResults() {
   showScreen('screen-result');
 }
 
-// ────────────────────────────────────────────────────────────
-//  ANILLO SVG NOTA
-// ────────────────────────────────────────────────────────────
 function animateRing(grade) {
   const r = 52;
   const circum = 2 * Math.PI * r;
@@ -252,12 +304,104 @@ function animateRing(grade) {
 }
 
 // ────────────────────────────────────────────────────────────
-//  ANÁLISIS POR TEMAS
+//  ANÁLISIS POR TEMAS (CON CONTROL ANTI-CONGELACIÓN)
 // ────────────────────────────────────────────────────────────
 function buildThemeAnalysis() {
-  const themeData = {};
+  const themeStats = {};
+  
+  Object.keys(THEME_NAMES).forEach(t => {
+    themeStats[t] = { correct: 0, total: 0 };
+  });
 
   state.selectedQuestions.forEach((q, i) => {
     const t = q.tema;
-    if (!themeData[t]) themeData[t] = { correct: 0, wrong: 0, total: 0 };
-    theme
+    if (themeStats[t]) {
+      themeStats[t].total++;
+      if (state.answers[i] === 'correct') {
+        themeStats[t].correct++;
+      }
+    }
+  });
+
+  const sorted = Object.keys(THEME_NAMES).map(t => {
+    const temaNum = Number(t);
+    const data = themeStats[temaNum];
+    const pct = data.total > 0 ? (data.correct / data.total) * 100 : 100; 
+    return {
+      tema: temaNum,
+      name: THEME_NAMES[temaNum],
+      correct: data.correct,
+      total: data.total,
+      pct: pct
+    };
+  }).sort((a, b) => a.pct - b.pct);
+
+  const container = document.getElementById('theme-analysis');
+  container.innerHTML = '';
+
+  sorted.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'theme-row';
+
+    const pct = Math.round(item.pct);
+    let barClass = 'bar-danger';
+    let icon = '🔴';
+
+    if (item.total === 0) {
+      barClass = 'bar-mid'; 
+      icon = '⚪';
+    } else if (pct >= 70) {
+      barClass = 'bar-good';
+      icon = '🟢';
+    } else if (pct >= 50) {
+      barClass = 'bar-mid';
+      icon = '🟡';
+    }
+
+    const scoreDisplay = item.total > 0 ? `${item.correct}/${item.total}` : '0/0';
+
+    row.innerHTML = `
+      <div class="theme-row-header">
+        <span class="theme-icon">${icon}</span>
+        <span class="theme-name">T${item.tema} · ${item.name}</span>
+        <span class="theme-score">${scoreDisplay}</span>
+      </div>
+      <div class="theme-bar-bg">
+        <div class="theme-bar-fill ${barClass}" style="width: 0%" data-width="${pct}%"></div>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll('.theme-bar-fill').forEach(bar => {
+      bar.style.transition = 'width 0.8s ease';
+      bar.style.width = bar.dataset.width;
+    });
+  }, 200);
+}
+
+// ────────────────────────────────────────────────────────────
+//  EVENT LISTENERS
+// ────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-start').addEventListener('click', startTest);
+
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if (!state.answered && state.selectedOption !== null) {
+      submitAnswer(false);
+    } else if (state.answered) {
+      advanceFlow();
+    }
+  });
+
+  document.getElementById('btn-blank').addEventListener('click', () => {
+    if (state.answered) return;
+    submitAnswer(true);
+  });
+
+  document.getElementById('btn-retry').addEventListener('click', startTest);
+  document.getElementById('btn-home').addEventListener('click', () => {
+    showScreen('screen-home');
+  });
+});
