@@ -1,157 +1,3 @@
-// ============================================================
-//  app.js – lógica principal del simulacro de Edafología
-// ============================================================
-
-const NUM_QUESTIONS = 40;
-
-// Estado del simulacro
-let state = {
-  selectedQuestions: [],
-  currentIndex: 0,
-  answers: [],       // 'correct' | 'wrong' | 'blank'
-  selectedOption: null,
-  answered: false,
-};
-
-// ────────────────────────────────────────────────────────────
-//  UTILIDADES
-// ────────────────────────────────────────────────────────────
-
-/** Fisher-Yates shuffle */
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/**
- * Selecciona 40 preguntas intentando cubrir todos los temas.
- */
-function selectQuestions() {
-  const byTheme = {};
-  QUESTIONS.forEach(q => {
-    if (!byTheme[q.tema]) byTheme[q.tema] = [];
-    byTheme[q.tema].push(q);
-  });
-
-  const themes = Object.keys(byTheme).map(Number);
-  const selected = [];
-  const usedIds = new Set();
-
-  themes.forEach(t => {
-    const pool = shuffle(byTheme[t]);
-    if (pool.length > 0) {
-      selected.push(pool[0]);
-      usedIds.add(pool[0].id);
-    }
-  });
-
-  const remaining = shuffle(
-    QUESTIONS.filter(q => !usedIds.has(q.id))
-  );
-
-  for (const q of remaining) {
-    if (selected.length >= NUM_QUESTIONS) break;
-    selected.push(q);
-  }
-
-  return shuffle(selected.slice(0, NUM_QUESTIONS));
-}
-
-// ────────────────────────────────────────────────────────────
-//  NAVEGACIÓN ENTRE PANTALLAS
-// ────────────────────────────────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-// ────────────────────────────────────────────────────────────
-//  INICIO DEL SIMULACRO
-// ────────────────────────────────────────────────────────────
-function startTest() {
-  state.selectedQuestions = selectQuestions();
-  state.currentIndex = 0;
-  state.answers = [];
-  state.selectedOption = null;
-  state.answered = false;
-
-  document.getElementById('live-correct').textContent = '0';
-  document.getElementById('live-wrong').textContent = '0';
-  document.getElementById('live-blank').textContent = '0';
-
-  showScreen('screen-test');
-  renderQuestion();
-}
-
-// ────────────────────────────────────────────────────────────
-//  RENDERIZAR PREGUNTA
-// ────────────────────────────────────────────────────────────
-function renderQuestion() {
-  const q = state.selectedQuestions[state.currentIndex];
-  const idx = state.currentIndex;
-
-  state.selectedOption = null;
-  state.answered = false;
-
-  // Cabecera
-  const total = state.selectedQuestions.length;
-  document.getElementById('progress-label').textContent = `Pregunta ${idx + 1} / ${total}`;
-  document.getElementById('progress-bar').style.width = `${((idx + 1) / total) * 100}%`;
-
-  // Tema
-  document.getElementById('q-theme-tag').textContent = `TEMA ${q.tema} · ${THEME_NAMES[q.tema].toUpperCase()}`;
-
-  // Número
-  const num = String(idx + 1).padStart(2, '0');
-  document.getElementById('q-number').textContent = num;
-
-  // Texto
-  document.getElementById('q-text').textContent = q.text;
-
-  // Opciones
-  const container = document.getElementById('options-container');
-  container.innerHTML = '';
-
-  const letters = ['A', 'B', 'C', 'D', 'E'];
-  q.options.forEach((opt, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'option-btn';
-    btn.dataset.index = i;
-    btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span class="option-text">${opt}</span>`;
-    btn.addEventListener('click', () => selectOption(i));
-    container.appendChild(btn);
-  });
-
-  // Reset de botones de acción
-  document.getElementById('btn-next').disabled = true;
-  document.getElementById('btn-next').textContent = idx + 1 < total ? 'Siguiente →' : 'Ver resultado →';
-  document.getElementById('btn-blank').disabled = false; // Siempre disponible al entrar a una pregunta nueva
-
-  // Animación entrada
-  const card = document.getElementById('question-card');
-  card.classList.remove('slide-in');
-  void card.offsetWidth; // reflow
-  card.classList.add('slide-in');
-}
-
-// ────────────────────────────────────────────────────────────
-//  SELECCIONAR OPCIÓN
-// ────────────────────────────────────────────────────────────
-function selectOption(optionIndex) {
-  if (state.answered) return;
-  state.selectedOption = optionIndex;
-
-  document.querySelectorAll('.option-btn').forEach((btn, i) => {
-    btn.classList.toggle('selected', i === optionIndex);
-  });
-
-  document.getElementById('btn-next').disabled = false;
-}
-
 // ────────────────────────────────────────────────────────────
 //  RESPONDER (tras pulsar Siguiente o En blanco)
 // ────────────────────────────────────────────────────────────
@@ -172,17 +18,17 @@ function submitAnswer(isBlank) {
 
   state.answers.push(result);
 
-  // Mostrar feedback visual en pantalla
+  // Mostrar feedback visual en pantalla (colores)
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (i === q.correct) {
-      btn.classList.add('correct-answer');
+      btn.classList.add('correct-answer'); // Ilumina la correcta en verde
     } else if (!isBlank && i === state.selectedOption && result === 'wrong') {
-      btn.classList.add('wrong-answer');
+      btn.classList.add('wrong-answer');   // Ilumina tu fallo en rojo
     }
-    btn.disabled = true;
+    btn.disabled = true; // Bloquea las opciones para que no se pueda volver a pulsar
   });
 
-  // Actualizar marcador en vivo
+  // Actualizar marcador en vivo de la barra inferior
   const correct = state.answers.filter(a => a === 'correct').length;
   const wrong   = state.answers.filter(a => a === 'wrong').length;
   const blank   = state.answers.filter(a => a === 'blank').length;
@@ -194,165 +40,15 @@ function submitAnswer(isBlank) {
   document.getElementById('btn-blank').disabled = true;
   document.getElementById('btn-next').disabled = false;
 
-  // SI SE DEJA EN BLANCO, PASAMOS AUTOMÁTICAMENTE TRAS UN BREVE SEGUNDO
+  // CONTROL DE TIEMPOS INTELIGENTE SEGÚN TU RESPUESTA
   if (isBlank) {
-    setTimeout(() => {
-      advanceFlow();
-    }, 400); // 400 milisegundos para que sea fluido
+    // Si la dejas en blanco, pasa rápido (0,4 segundos)
+    setTimeout(() => { advanceFlow(); }, 400);
+  } else if (result === 'correct') {
+    // Si aciertas, pasa rápido porque ya te la sabes (0,5 segundos)
+    setTimeout(() => { advanceFlow(); }, 500);
+  } else if (result === 'wrong') {
+    // Si fallas, TE DEJA 2 SEGUNDOS para que veas cuál era la correcta en verde
+    setTimeout(() => { advanceFlow(); }, 2000);
   }
 }
-
-// Lógica unificada para avanzar de pregunta o ir a resultados
-function advanceFlow() {
-  state.currentIndex++;
-  if (state.currentIndex >= state.selectedQuestions.length) {
-    showResults();
-  } else {
-    renderQuestion();
-  }
-}
-
-// ────────────────────────────────────────────────────────────
-//  CALCULAR Y MOSTRAR RESULTADOS
-// ────────────────────────────────────────────────────────────
-function showResults() {
-  const correct = state.answers.filter(a => a === 'correct').length;
-  const wrong   = state.answers.filter(a => a === 'wrong').length;
-  const blank   = state.answers.filter(a => a === 'blank').length;
-
-  const rawScore = correct - (wrong / 2);
-  const grade    = Math.max(0, (rawScore * 10) / NUM_QUESTIONS);
-  const gradeStr = grade.toFixed(2);
-
-  document.getElementById('res-correct').textContent = correct;
-  document.getElementById('res-wrong').textContent = wrong;
-  document.getElementById('res-blank').textContent = blank;
-  document.getElementById('grade-value').textContent = gradeStr;
-
-  let verdict, verdictClass;
-  if (grade >= 9)      { verdict = '🎉 Sobresaliente'; verdictClass = 'outstanding'; }
-  else if (grade >= 7) { verdict = '✅ Notable';        verdictClass = 'good'; }
-  else if (grade >= 5) { verdict = '👍 Aprobado';       verdictClass = 'pass'; }
-  else if (grade >= 4) { verdict = '⚠️ Cerca del aprobado'; verdictClass = 'near'; }
-  else                 { verdict = '❌ Suspenso';        verdictClass = 'fail'; }
-
-  const verdictEl = document.getElementById('result-verdict');
-  verdictEl.textContent = verdict;
-  verdictEl.className = 'result-verdict ' + verdictClass;
-
-  animateRing(grade);
-  buildThemeAnalysis();
-  showScreen('screen-result');
-}
-
-// ────────────────────────────────────────────────────────────
-//  ANILLO SVG NOTA
-// ────────────────────────────────────────────────────────────
-function animateRing(grade) {
-  const r = 52;
-  const circum = 2 * Math.PI * r;
-  const arc = document.getElementById('ring-arc');
-  const pct = Math.min(grade / 10, 1);
-
-  arc.style.strokeDasharray = `${circum}`;
-  arc.style.strokeDashoffset = `${circum}`;
-
-  let color = '#e74c3c';
-  if (grade >= 7) color = '#27ae60';
-  else if (grade >= 5) color = '#f39c12';
-  arc.style.stroke = color;
-
-  setTimeout(() => {
-    arc.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)';
-    arc.style.strokeDashoffset = `${circum * (1 - pct)}`;
-  }, 150);
-}
-
-// ────────────────────────────────────────────────────────────
-//  ANÁLISIS POR TEMAS
-// ────────────────────────────────────────────────────────────
-function buildThemeAnalysis() {
-  const themeData = {};
-
-  state.selectedQuestions.forEach((q, i) => {
-    const t = q.tema;
-    if (!themeData[t]) themeData[t] = { correct: 0, wrong: 0, total: 0 };
-    themeData[t].total++;
-    if (state.answers[i] === 'correct') themeData[t].correct++;
-    if (state.answers[i] === 'wrong')   themeData[t].wrong++;
-  });
-
-  const sorted = Object.entries(themeData)
-    .map(([tema, data]) => ({
-      tema: Number(tema),
-      name: THEME_NAMES[Number(tema)],
-      ...data,
-      pct: data.total > 0 ? (data.correct / data.total) * 100 : 100
-    }))
-    .sort((a, b) => a.pct - b.pct);
-
-  const container = document.getElementById('theme-analysis');
-  container.innerHTML = '';
-
-  sorted.forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'theme-row';
-
-    const pct = Math.round(item.pct);
-    let barClass = 'bar-danger';
-    if (pct >= 70) barClass = 'bar-good';
-    else if (pct >= 50) barClass = 'bar-mid';
-
-    let icon = '🔴';
-    if (pct >= 70) icon = '🟢';
-    else if (pct >= 50) icon = '🟡';
-
-    row.innerHTML = `
-      <div class="theme-row-header">
-        <span class="theme-icon">${icon}</span>
-        <span class="theme-name">T${item.tema} · ${item.name}</span>
-        <span class="theme-score">${item.correct}/${item.total}</span>
-      </div>
-      <div class="theme-bar-bg">
-        <div class="theme-bar-fill ${barClass}" style="width: 0%" data-width="${pct}%"></div>
-      </div>
-    `;
-    container.appendChild(row);
-  });
-
-  setTimeout(() => {
-    document.querySelectorAll('.theme-bar-fill').forEach(bar => {
-      bar.style.transition = 'width 0.8s ease';
-      bar.style.width = bar.dataset.width;
-    });
-  }, 200);
-}
-
-// ────────────────────────────────────────────────────────────
-//  EVENT LISTENERS
-// ────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-
-  document.getElementById('btn-start').addEventListener('click', startTest);
-
-  // Botón Siguiente (para cuando el usuario Elige una opción)
-  document.getElementById('btn-next').addEventListener('click', () => {
-    if (!state.answered && state.selectedOption !== null) {
-      submitAnswer(false);
-    } else if (state.answered) {
-      advanceFlow();
-    }
-  });
-
-  // Botón dejar en blanco
-  document.getElementById('btn-blank').addEventListener('click', () => {
-    if (state.answered) return;
-    submitAnswer(true);
-  });
-
-  document.getElementById('btn-retry').addEventListener('click', startTest);
-
-  document.getElementById('btn-home').addEventListener('click', () => {
-    showScreen('screen-home');
-  });
-});
